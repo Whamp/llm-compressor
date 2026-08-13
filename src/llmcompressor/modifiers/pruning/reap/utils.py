@@ -8,8 +8,11 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from compressed_tensors import align_module_device
+from compressed_tensors.distributed import is_source_process
+from compressed_tensors.offload.dist_utils import as_broadcastable, is_distributed
 from loguru import logger
 
 from llmcompressor.modeling.moe.context import get_calibrate_all_experts_flag
@@ -289,6 +292,30 @@ class REAPSaliencyTracker:
                 0, flat_idx, torch.ones_like(flat_idx, dtype=torch.float64)
             )
 
+    def reduce(self):
+        """All-reduce ``sum_saliency`` and ``count`` across DDP ranks so every
+        rank computes the same retained-expert set."""
+        if self.sum_saliency is None or not is_distributed():
+            return
+
+        pending = []
+        pending.append(
+            dist.all_reduce(
+                as_broadcastable(self.sum_saliency),
+                op=dist.ReduceOp.SUM,
+                async_op=True,
+            )
+        )
+        pending.append(
+            dist.all_reduce(
+                as_broadcastable(self.count),
+                op=dist.ReduceOp.SUM,
+                async_op=True,
+            )
+        )
+        for req in pending:
+            req.wait()
+
     def compute_retained_experts(
         self,
         n_experts_to_drop: int,
@@ -296,6 +323,7 @@ class REAPSaliencyTracker:
         moe_attrs: MoeModelAttrs,
     ) -> list[int]:
         """Select which experts to keep, dropping the lowest-saliency ones."""
+        self.reduce()
         saliency = self.mean_saliency
 
         if n_experts_to_drop_per_group is None:

@@ -8,6 +8,7 @@ from functools import partial
 from typing import Any
 
 import torch
+from compressed_tensors.distributed import is_source_process
 from loguru import logger
 from pydantic import Field, PrivateAttr, model_validator
 
@@ -213,7 +214,8 @@ class REAPPruningModifier(Modifier):
         model = state.model
 
         new_num_experts = self._moe_attrs.num_experts - self._n_experts_to_drop
-        update_model_config(model, self._moe_attrs, new_num_experts)
+        if is_source_process():
+            update_model_config(model, self._moe_attrs, new_num_experts)
 
         self._saliency_trackers.clear()
         self._norm_buffers.clear()
