@@ -1,0 +1,24 @@
+{
+  "pilot_identity": {
+    "calibration_samples": 128,
+    "corpus_manifest_sha256": "5f8508ba96234f12a2bdfb7d8c1fa0ccebde4209c3a2f7fb1216c32bf0a1133a",
+    "held_out_samples": 32,
+    "max_sequence_length": 2048,
+    "model_id": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "model_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+    "target_layer": "layers.26",
+    "token_manifest_sha256": "646de977abf3677d71978bc31ad8bcb65660e53d33d7cd9628a2ee3f1c6784af"
+  },
+  "repositories": {
+    "auto-round": "52636d3c725926047e66da752651ca643fd2806b",
+    "compressed-tensors": "434b5a33f584a8990e91a96e9177ee49c2f2aa31",
+    "llm-compressor": "812bb30398327cc5f862018988500fa47378037d"
+  },
+  "required_versions": {
+    "datasets": "5.0.1",
+    "safetensors": "0.8.0",
+    "torch": "2.13.0",
+    "transformers": "5.14.1"
+  },
+  "schema_version": 1
+}
