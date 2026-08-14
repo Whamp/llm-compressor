@@ -84,11 +84,13 @@ def _projection_specific_autoround_recipe():
 def test_deepseek_v4_projection_specific_autoround_one_layer(tmp_path):
     """A real DeepSeek V4 layer completes calibrated W2/W4 AutoRound tuning."""
     model = _tiny_deepseek_v4_model(tmp_path)
-    input_ids = torch.tensor([[0, 11, 23, 7, 41, 5, 91, 3]], dtype=torch.long)
-    calibration_data = DataLoader(
-        [{"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}],
-        batch_size=None,
-    )
+    calibration_records = []
+    for length in range(2, 11):
+        input_ids = torch.arange(length, dtype=torch.long).unsqueeze(0)
+        calibration_records.append(
+            {"input_ids": input_ids, "attention_mask": torch.ones_like(input_ids)}
+        )
+    calibration_data = DataLoader(calibration_records, batch_size=None)
     processor = SimpleNamespace(save_pretrained=lambda *_args, **_kwargs: None)
 
     quantized_model = oneshot(
@@ -100,8 +102,8 @@ def test_deepseek_v4_projection_specific_autoround_one_layer(tmp_path):
         sequential_targets=["model.layers.0"],
         sequential_targets_per_subgraph=1,
         batch_size=1,
-        max_seq_length=8,
-        num_calibration_samples=1,
+        max_seq_length=10,
+        num_calibration_samples=9,
         shuffle_calibration_samples=False,
         moe_calibrate_all_experts=True,
         propagate_error=False,

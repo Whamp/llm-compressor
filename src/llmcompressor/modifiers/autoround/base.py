@@ -4,6 +4,8 @@ from contextlib import contextmanager
 import torch
 import torch.nn as nn
 from auto_round import AutoRound
+from auto_round.algorithms.quantization.rtn.config import RTNConfig
+from auto_round.algorithms.quantization.sign_round.config import SignRoundConfig
 from auto_round.schemes import PRESET_SCHEMES as AR_PRESET_SCHEMES
 from auto_round.schemes import QuantizationScheme as ARQuantizationScheme
 from auto_round.utils import check_to_quantized
@@ -326,17 +328,20 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         ar_quant_scheme = self._mapping_config_to_autoround()
         layer_config = self._build_layer_config_for_autoround(wrapped_model)
         ignore_layers = self.get_unquantized_layer_names(decoding_layer)
+        algorithm_config = (
+            RTNConfig(disable_opt_rtn=self.disable_opt_rtn)
+            if self.iters == 0
+            else SignRoundConfig(iters=self.iters, lr=self.lr)
+        )
         kwargs = {
             "tokenizer": "",  # A placeholder
             "scheme": ar_quant_scheme,
             "layer_config": layer_config or None,
-            "iters": self.iters,
-            "lr": self.lr,
+            "alg_configs": algorithm_config,
             "enable_torch_compile": self.enable_torch_compile,
             "batch_size": self.batch_size,
             "device_map": self.device_ids,
             "ignore_layers": ",".join(ignore_layers) if ignore_layers else "",
-            "disable_opt_rtn": self.disable_opt_rtn,
         }
 
         llmc_registered_qparams = self._preprocess_qparams(decoding_layer)
