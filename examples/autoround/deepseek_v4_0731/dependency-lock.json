@@ -12,7 +12,7 @@
   "repositories": {
     "auto-round": "52636d3c725926047e66da752651ca643fd2806b",
     "compressed-tensors": "434b5a33f584a8990e91a96e9177ee49c2f2aa31",
-    "llm-compressor": "8ba9d049a16f65e9821e0efd23d230a99fe1f678"
+    "llm-compressor": "1dcc96fcfa6031ed6fd1391b99c9fd2cad0ec3b8"
   },
   "required_versions": {
     "datasets": "5.0.1",
