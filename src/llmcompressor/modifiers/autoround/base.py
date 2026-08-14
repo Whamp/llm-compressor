@@ -68,6 +68,19 @@ def _wrap_decoding_layer(layer: torch.nn.Module) -> _PretrainModelWrapper:
     return wrapped_model
 
 
+def _freeze_model_parameters(model: torch.nn.Module) -> None:
+    """Freeze ordinary and non-leaf offloaded parameters for calibration."""
+    for name, parameter in model.named_parameters():
+        if not parameter.is_leaf:
+            try:
+                parameter.detach_()
+            except RuntimeError as error:
+                raise RuntimeError(
+                    f"Cannot detach non-leaf AutoRound parameter {name}"
+                ) from error
+        parameter.requires_grad_(False)
+
+
 def fix_batch_if_needed(
     batch: dict[str, list[int] | list[list[int]]],
 ) -> dict[str, list[int] | list[list[int]]]:
@@ -203,9 +216,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
 
         # prepare module names
         self._add_temporary_names(state.model)
-        # freeze all model parameters
-        for _, param in state.model.named_parameters():
-            param.requires_grad_(False)
+        # freeze all model parameters, including tensors cast into offload caches
+        _freeze_model_parameters(state.model)
 
         self._sequential_targets = infer_sequential_targets(
             state.model, sequential_targets=kwargs.get("sequential_targets")

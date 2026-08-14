@@ -10,7 +10,10 @@ from torch import nn
 
 from llmcompressor.core import Event, EventType, State
 from llmcompressor.modifiers.autoround import AutoRoundModifier
-from llmcompressor.modifiers.autoround.base import _wrap_decoding_layer
+from llmcompressor.modifiers.autoround.base import (
+    _freeze_model_parameters,
+    _wrap_decoding_layer,
+)
 
 
 class _FakeDecoderLayer(nn.Module):
@@ -26,6 +29,28 @@ class _MixedFakeDecoderLayer(nn.Module):
         self.q_proj = nn.Linear(128, 128)
         self.o_proj = nn.Linear(128, 128)
         self.up_proj = nn.Linear(128, 128)
+
+
+class _NonLeafOffloadedParameterModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        source = nn.Parameter(torch.ones(4, dtype=torch.float32))
+        self.converted_parameter = source.to(torch.bfloat16)
+
+    def named_parameters(self, *args, **kwargs):
+        del args, kwargs
+        yield "converted_parameter", self.converted_parameter
+
+
+def test_freeze_model_parameters_detaches_offloaded_cast_tensor():
+    model = _NonLeafOffloadedParameterModel()
+    assert not model.converted_parameter.is_leaf
+    assert model.converted_parameter.requires_grad
+
+    _freeze_model_parameters(model)
+
+    assert model.converted_parameter.is_leaf
+    assert not model.converted_parameter.requires_grad
 
 
 @pytest.mark.parametrize(
