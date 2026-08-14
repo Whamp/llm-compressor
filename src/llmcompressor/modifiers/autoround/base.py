@@ -17,7 +17,11 @@ from compressed_tensors.quantization import (
     QuantizationStrategy,
     enable_quantization,
 )
-from compressed_tensors.utils import align_module_device, match_named_modules
+from compressed_tensors.utils import (
+    align_module_device,
+    match_named_modules,
+    match_targets,
+)
 from loguru import logger
 from pydantic import PrivateAttr
 
@@ -430,7 +434,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         ]
 
     def _is_decoding_layer(self, module: torch.nn.Module) -> bool:
-        return module.__class__.__name__ in self._sequential_targets
+        module_name = getattr(module, "_tmp_name", "")
+        return bool(match_targets(module_name, module, self._sequential_targets))
 
     def _unwrapper_quantized_layer(self, model: torch.nn.Module):
         # auto-round will return WrapperWALayer if activation is quantized

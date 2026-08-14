@@ -53,10 +53,17 @@ def test_oneshot_warns_pre_quantized_smoke_model():
 
 @pytest.mark.smoke
 @pytest.mark.integration
-def test_oneshot_rejects_pre_quantized_smoke_model():
+@pytest.mark.parametrize(
+    "quantization_config",
+    [
+        SimpleNamespace(quant_method="fp_quant"),
+        {"quant_method": "fp8"},
+    ],
+)
+def test_oneshot_rejects_pre_quantized_smoke_model(quantization_config):
     with skip_weights_initialize():
         model = AutoModelForCausalLM.from_pretrained(SMOKE_MODEL)
-    model.config.quantization_config = SimpleNamespace(quant_method="fp_quant")
+    model.config.quantization_config = quantization_config
     with pytest.raises(ValueError, match="already quantized"):
         oneshot(model=model, recipe=_recipe())
 

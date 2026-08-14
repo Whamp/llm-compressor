@@ -10,6 +10,7 @@ with various pipeline configurations for efficient model optimization.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from contextlib import ExitStack
 from datetime import datetime
 from pathlib import Path
@@ -276,10 +277,13 @@ class Oneshot:
         Raise warning if model is quantized with compressed-tensors quant method.
         Raise error if model is quantized with any other quant method.
         """
-        quant_method_key = (
-            f"config.{QUANTIZATION_CONFIG_NAME}.{QUANTIZATION_METHOD_NAME}"
+        quantization_config = getattr_chain(
+            model, f"config.{QUANTIZATION_CONFIG_NAME}", None
         )
-        quant_method = getattr_chain(model, quant_method_key, None)
+        if isinstance(quantization_config, Mapping):
+            quant_method = quantization_config.get(QUANTIZATION_METHOD_NAME)
+        else:
+            quant_method = getattr(quantization_config, QUANTIZATION_METHOD_NAME, None)
 
         if quant_method is None:
             return

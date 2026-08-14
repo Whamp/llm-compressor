@@ -28,6 +28,31 @@ class _MixedFakeDecoderLayer(nn.Module):
         self.up_proj = nn.Linear(128, 128)
 
 
+@pytest.mark.parametrize(
+    "sequential_target",
+    [
+        "model.layers.26",
+        r"re:^model\.layers\.26$",
+        "_FakeDecoderLayer",
+    ],
+)
+def test_sequential_target_selects_one_decoder_layer(sequential_target):
+    modifier = AutoRoundModifier(
+        ignore=["lm_head"],
+        iters=10,
+        scheme="W4A16",
+    )
+    selected_layer = _FakeDecoderLayer()
+    selected_layer._tmp_name = "model.layers.26"
+    unselected_layer = _FakeDecoderLayer()
+    unselected_layer._tmp_name = "model.layers.25"
+    modifier._sequential_targets = [sequential_target]
+
+    assert modifier._is_decoding_layer(selected_layer)
+    if sequential_target != "_FakeDecoderLayer":
+        assert not modifier._is_decoding_layer(unselected_layer)
+
+
 def test_on_sequential_epoch_end_passes_all_modules():
     """Verify that on_sequential_epoch_end passes all modules to apply_autoround
     without filtering. Regression test for a bug where an is_module_quantized
@@ -41,8 +66,9 @@ def test_on_sequential_epoch_end_passes_all_modules():
     event = Event(type_=EventType.SEQUENTIAL_EPOCH_END)
     modules = [_FakeDecoderLayer(), nn.Linear(64, 64)]
 
-    with patch.object(AutoRoundModifier, "apply_autoround") as mock_apply, patch.object(
-        AutoRoundModifier, "post_autoround_cleanup"
+    with (
+        patch.object(AutoRoundModifier, "apply_autoround") as mock_apply,
+        patch.object(AutoRoundModifier, "post_autoround_cleanup"),
     ):
         modifier.on_sequential_epoch_end(state, event, modules=modules)
         mock_apply.assert_called_once_with(state, modules)
