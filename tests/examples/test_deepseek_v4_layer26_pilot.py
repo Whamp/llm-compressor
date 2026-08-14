@@ -291,6 +291,32 @@ def test_summarize_reports_requires_matched_evidence():
         summarize_reports(baseline, autoround)
 
 
+def test_prepare_reference_outputs_reuses_verified_manifest(tmp_path, monkeypatch):
+    module = _load_runner_module()
+    reference_dir = tmp_path / "reference"
+    reference_dir.mkdir()
+    (reference_dir / "reference-manifest.json").write_text("{}")
+    expected = {"manifest_sha256": "verified"}
+
+    monkeypatch.setattr(
+        module,
+        "load_reference_manifest",
+        lambda path: expected if path == reference_dir else None,
+    )
+    monkeypatch.setattr(
+        module,
+        "write_reference_outputs",
+        lambda *args, **kwargs: pytest.fail("verified references must be reused"),
+    )
+
+    manifest, reused = module.prepare_reference_outputs(
+        torch.nn.Linear(1, 1), [], reference_dir
+    )
+
+    assert manifest == expected
+    assert reused is True
+
+
 def test_run_quantization_streams_oversized_sequential_weights(monkeypatch):
     module = _load_runner_module()
     captured = {}

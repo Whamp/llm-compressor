@@ -367,6 +367,17 @@ def load_reference_manifest(reference_dir: Path) -> dict:
     return {**manifest, "manifest_sha256": claimed_hash}
 
 
+def prepare_reference_outputs(
+    model: torch.nn.Module,
+    held_out_records: list[dict],
+    reference_dir: Path,
+) -> tuple[dict, bool]:
+    """Reuse a verified BF16 reference set or create it exactly once."""
+    if (reference_dir / "reference-manifest.json").is_file():
+        return load_reference_manifest(reference_dir), True
+    return write_reference_outputs(model, held_out_records, reference_dir), False
+
+
 def compare_candidate_outputs(
     model: torch.nn.Module,
     held_out_records: list[dict],
@@ -522,7 +533,7 @@ def main() -> None:
 
     if args.arm == "baseline":
         reference_start = time.perf_counter()
-        reference_manifest = write_reference_outputs(
+        reference_manifest, reference_reused = prepare_reference_outputs(
             model,
             held_out_records,
             args.reference_dir,
@@ -531,6 +542,7 @@ def main() -> None:
         iterations = 0
     else:
         reference_manifest = load_reference_manifest(args.reference_dir)
+        reference_reused = True
         reference_seconds = 0.0
         iterations = AUTOROUND_ITERATIONS
 
@@ -564,6 +576,7 @@ def main() -> None:
         "checkpoint": checkpoint_evidence,
         "token_manifest_sha256": token_manifest["token_manifest_sha256"],
         "reference_manifest_sha256": reference_manifest["manifest_sha256"],
+        "reference_reused": reference_reused,
         "output_schema": output_schema,
         "comparison": comparison,
         "timing_seconds": {
