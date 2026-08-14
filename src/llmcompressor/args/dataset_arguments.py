@@ -256,6 +256,14 @@ class DatasetArguments(CustomDatasetArguments):
             "Higher values use more VRAM but are faster to calibrate. Default is 1."
         },
     )
+    sequential_keep_onloaded_weights: bool = field(
+        default=True,
+        metadata={
+            "help": "Keep weights on the accelerator across calibration batches for "
+            "each sequential subgraph. Disable this when a traced subgraph exceeds "
+            "accelerator memory and must continue streaming offloaded weights."
+        },
+    )
     quantization_aware_calibration: bool = field(
         default=True,
         metadata={

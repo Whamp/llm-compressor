@@ -291,6 +291,25 @@ def test_summarize_reports_requires_matched_evidence():
         summarize_reports(baseline, autoround)
 
 
+def test_run_quantization_streams_oversized_sequential_weights(monkeypatch):
+    module = _load_runner_module()
+    captured = {}
+
+    def capture_oneshot(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(module, "oneshot", capture_oneshot)
+    module.run_quantization(
+        model=torch.nn.Linear(1, 1),
+        tokenizer=object(),
+        calibration_dataset=[],
+        iterations=0,
+        device_ids="0,1",
+    )
+
+    assert captured["sequential_keep_onloaded_weights"] is False
+
+
 def test_dependency_revision_allows_only_exact_or_lock_only_child():
     module = _load_runner_module()
     lock_path = "examples/autoround/deepseek_v4_0731/dependency-lock.json"

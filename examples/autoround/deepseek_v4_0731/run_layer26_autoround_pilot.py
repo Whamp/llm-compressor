@@ -456,6 +456,7 @@ def run_quantization(
             pipeline="sequential",
             sequential_targets=[TARGET_LAYER_PATH],
             sequential_targets_per_subgraph=1,
+            sequential_keep_onloaded_weights=False,
             batch_size=1,
             max_seq_length=2048,
             num_calibration_samples=128,

@@ -48,6 +48,13 @@ def _get_batches(
         yield batch_idx, inputs
 
 
+def _sequential_weight_residency_context(keep_onloaded_weights: bool):
+    """Keep subgraph weights resident only when the caller confirms they fit."""
+    if keep_onloaded_weights:
+        return disable_offloading()
+    return contextlib.nullcontext()
+
+
 @CalibrationPipeline.register("sequential")
 class SequentialPipeline(CalibrationPipeline):
     @staticmethod
@@ -138,9 +145,12 @@ class SequentialPipeline(CalibrationPipeline):
                 calib_desc = f"({subgraph_index + 1}/{num_subgraphs}): Calibrating"
                 prop_desc = f"({subgraph_index + 1}/{num_subgraphs}): Propagating"
 
-                # reduce memory movement by keeping modules onloaded
+                # reduce memory movement by keeping modules onloaded when they fit
                 num_batches = len(dataloader)
-                with disable_offloading():
+                weight_residency_context = _sequential_weight_residency_context(
+                    dataset_args.sequential_keep_onloaded_weights
+                )
+                with weight_residency_context:
                     # do a preliminary pass to trigger modifier hooks
                     for batch_idx, inputs in _get_batches(
                         activations,

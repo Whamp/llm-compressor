@@ -359,6 +359,7 @@ def oneshot(
     ],
     sequential_targets: list[str] | None = None,
     sequential_offload_device: str = "cpu",
+    sequential_keep_onloaded_weights: bool = True,
     quantization_aware_calibration: bool = True,
     sequential_prefetch: bool = False,
     # Miscellaneous arguments
@@ -449,6 +450,9 @@ def oneshot(
     :param sequential_offload_device: Device used to offload intermediate activations
         between sequential layers. It is recommended to use `cuda:1` if using more
         than one gpu. Default is cpu.
+    :param sequential_keep_onloaded_weights: Keep weights on the accelerator across
+        calibration batches for each sequential subgraph. Disable this when a traced
+        subgraph exceeds accelerator memory and must stream offloaded weights.
     :param quantization_aware_calibration: Deprecated. This argument has no effect
         and will be removed in a future release.
     :param sequential_prefetch: When using the sequential pipeline, prefetch the
