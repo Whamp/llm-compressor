@@ -7,6 +7,7 @@ from auto_round.schemes import PRESET_SCHEMES as AR_PRESET_SCHEMES
 from auto_round.schemes import QuantizationScheme as ARQuantizationScheme
 from compressed_tensors.offload import disable_onloading
 from compressed_tensors.offload.cache.cpu import CPUCache
+from compressed_tensors.offload.cache.disk import DiskCache
 from compressed_tensors.offload.module import offload_module
 from compressed_tensors.quantization import QuantizationArgs, QuantizationScheme
 from torch import nn
@@ -16,6 +17,7 @@ from llmcompressor.modifiers.autoround import AutoRoundModifier
 from llmcompressor.modifiers.autoround.base import (
     _freeze_model_parameters,
     _wrap_decoding_layer,
+    suspend_offloading,
 )
 
 
@@ -43,6 +45,23 @@ class _NonLeafOffloadedParameterModel(nn.Module):
             {"converted_parameter": converted_parameter},
             onload_device="cpu",
         )
+
+
+def test_suspend_offloading_restores_disk_cache_directory(tmp_path):
+    module = nn.Linear(4, 4)
+    offload_module(
+        module,
+        onload_device="cpu",
+        offload_device="disk",
+        offload_dir=tmp_path,
+    )
+
+    with suspend_offloading(module):
+        assert not isinstance(module._parameters, DiskCache)
+
+    assert isinstance(module._parameters, DiskCache)
+    assert module._parameters.offload_dir == tmp_path.resolve()
+    assert module.weight.shape == (4, 4)
 
 
 def test_preprocess_qparams_reads_direct_disk_cache_values(tmp_path):

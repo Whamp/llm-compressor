@@ -118,11 +118,16 @@ def suspend_offloading(model: nn.Module):
     """
     offloading_info = dict()
     for name, module in model.named_modules():
-        if not isinstance(module._parameters, OffloadCache):
+        parameter_cache = module._parameters
+        if not isinstance(parameter_cache, OffloadCache):
             continue
+        cache_kwargs = {}
+        if hasattr(parameter_cache, "offload_dir"):
+            cache_kwargs["offload_dir"] = parameter_cache.offload_dir
         offloading_info[name] = (
             get_execution_device(module),
             get_offloaded_device(module),
+            cache_kwargs,
         )
         remove_module_offload(module, onload_tensors=True)
 
@@ -131,7 +136,13 @@ def suspend_offloading(model: nn.Module):
     for name, module in model.named_modules():
         if name not in offloading_info:
             continue
-        offload_module(module, *offloading_info[name])
+        onload_device, offload_device, cache_kwargs = offloading_info[name]
+        offload_module(
+            module,
+            onload_device,
+            offload_device,
+            **cache_kwargs,
+        )
 
 
 class AutoRoundModifier(Modifier, QuantizationMixin):
