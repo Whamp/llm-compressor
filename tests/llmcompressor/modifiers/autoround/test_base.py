@@ -47,6 +47,19 @@ class _NonLeafOffloadedParameterModel(nn.Module):
         )
 
 
+def test_qparam_processing_preserves_unquantized_scale_parameter():
+    module = nn.Module()
+    expected_scale = nn.Parameter(torch.ones(3), requires_grad=False)
+    module.register_parameter("scale", expected_scale)
+    modifier = AutoRoundModifier()
+
+    saved_qparams = modifier._preprocess_qparams(module)
+    modifier._postprocess_qparams(module, saved_qparams)
+
+    assert saved_qparams == {}
+    assert module.scale is expected_scale
+
+
 def test_suspend_offloading_restores_disk_cache_directory(tmp_path):
     module = nn.Linear(4, 4)
     offload_module(
@@ -71,6 +84,10 @@ def test_preprocess_qparams_reads_direct_disk_cache_values(tmp_path):
         onload_device="cpu",
         offload_device="disk",
         offload_dir=tmp_path,
+    )
+    module.quantization_scheme = QuantizationScheme(
+        targets=["Linear"],
+        weights=QuantizationArgs(num_bits=4, strategy="group", group_size=4),
     )
     expected_scale = torch.ones(4, dtype=torch.float32)
     with disable_onloading():

@@ -496,6 +496,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         llmc_registered_qparams = {}
         with disable_onloading():
             for name, module in model.named_modules():
+                if not hasattr(module, "quantization_scheme"):
+                    continue
                 for key in QuantizationMetadata.all_qparam_names():
                     if hasattr(module, key):
                         if name not in llmc_registered_qparams:
@@ -543,6 +545,8 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
 
         # Update offload parameters and remove temporary attributes
         for name, module in model.named_modules():
+            if name not in llmc_registered_qparams:
+                continue
             # Respect AutoRound's final layer decision: if a layer is set back to
             # full precision (bits/act_bits > 8), do not restore legacy LLMC
             # qparams, otherwise the layer can look quantized again.
