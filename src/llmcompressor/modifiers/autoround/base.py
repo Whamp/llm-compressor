@@ -69,16 +69,28 @@ def _wrap_decoding_layer(layer: torch.nn.Module) -> _PretrainModelWrapper:
 
 
 def _freeze_model_parameters(model: torch.nn.Module) -> None:
-    """Freeze ordinary and non-leaf offloaded parameters for calibration."""
-    for name, parameter in model.named_parameters():
-        if not parameter.is_leaf:
-            try:
-                parameter.detach_()
-            except RuntimeError as error:
-                raise RuntimeError(
-                    f"Cannot detach non-leaf AutoRound parameter {name}"
-                ) from error
-        parameter.requires_grad_(False)
+    """Freeze backing tensors without onloading copies from offload caches."""
+    seen_tensor_ids: set[int] = set()
+    for module_name, module in model.named_modules():
+        parameter_mapping = module._parameters
+        if isinstance(parameter_mapping, OffloadCache):
+            parameter_mapping = parameter_mapping.offloaded_values
+
+        for parameter_name, parameter in parameter_mapping.items():
+            if parameter is None or id(parameter) in seen_tensor_ids:
+                continue
+            seen_tensor_ids.add(id(parameter))
+            if not parameter.is_leaf:
+                qualified_name = ".".join(
+                    part for part in (module_name, str(parameter_name)) if part
+                )
+                try:
+                    parameter.detach_()
+                except RuntimeError as error:
+                    raise RuntimeError(
+                        f"Cannot detach non-leaf AutoRound parameter {qualified_name}"
+                    ) from error
+            parameter.requires_grad_(False)
 
 
 def fix_batch_if_needed(

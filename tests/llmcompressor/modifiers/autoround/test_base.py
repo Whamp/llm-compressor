@@ -5,6 +5,7 @@ import pytest
 import torch
 from auto_round.schemes import PRESET_SCHEMES as AR_PRESET_SCHEMES
 from auto_round.schemes import QuantizationScheme as ARQuantizationScheme
+from compressed_tensors.offload.cache.cpu import CPUCache
 from compressed_tensors.quantization import QuantizationArgs, QuantizationScheme
 from torch import nn
 
@@ -35,20 +36,24 @@ class _NonLeafOffloadedParameterModel(nn.Module):
     def __init__(self):
         super().__init__()
         source = nn.Parameter(torch.ones(4, dtype=torch.float32))
-        self.converted_parameter = source.to(torch.bfloat16)
+        converted_parameter = source.to(torch.bfloat16)
+        self._parameters = CPUCache.from_mapping(
+            {"converted_parameter": converted_parameter},
+            onload_device="cpu",
+        )
 
-    def named_parameters(self, *args, **kwargs):
-        del args, kwargs
-        yield "converted_parameter", self.converted_parameter
 
-
-def test_freeze_model_parameters_detaches_offloaded_cast_tensor():
+def test_freeze_model_parameters_detaches_offload_cache_backing_tensor():
     model = _NonLeafOffloadedParameterModel()
-    assert not model.converted_parameter.is_leaf
-    assert model.converted_parameter.requires_grad
+    cache = model._parameters
+    backing_parameter = cache.offloaded_values["converted_parameter"]
+    assert not backing_parameter.is_leaf
+    assert backing_parameter.requires_grad
 
     _freeze_model_parameters(model)
 
+    assert backing_parameter.is_leaf
+    assert not backing_parameter.requires_grad
     assert model.converted_parameter.is_leaf
     assert not model.converted_parameter.requires_grad
 
