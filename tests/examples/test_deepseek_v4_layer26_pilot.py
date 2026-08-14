@@ -71,6 +71,28 @@ class _FakeTokenizer:
         }
 
 
+class _MixedDtypePrefix(torch.nn.Module):
+    """Minimal prefix with FP32 activations entering a BF16 layer."""
+
+    def __init__(self):
+        super().__init__()
+        self.layers = torch.nn.ModuleList(
+            [torch.nn.Identity() for _ in range(26)]
+            + [torch.nn.Linear(4, 4, bias=False, dtype=torch.bfloat16)]
+        )
+
+    def forward(self, input_ids, attention_mask, use_cache=False):
+        del attention_mask, use_cache
+        hidden_states = torch.ones(
+            (*input_ids.shape, 4),
+            dtype=torch.float32,
+            device=input_ids.device,
+        )
+        for layer in self.layers:
+            hidden_states = layer(hidden_states)
+        return hidden_states
+
+
 def _load_runner_module():
     module_path = EXAMPLE_DIR / "run_layer26_autoround_pilot.py"
     specification = importlib.util.spec_from_file_location(
@@ -212,6 +234,18 @@ def test_corpus_manifest_enforces_category_partition_counts():
 
     with pytest.raises(ValueError, match="coding/calibration count"):
         finalize_corpus_manifest(records)
+
+
+def test_capture_layer26_output_autocasts_mixed_dtype_prefix():
+    runner = _load_runner_module()
+
+    output = runner.capture_layer26_output(
+        _MixedDtypePrefix(),
+        {"input_ids": [1, 2, 3], "attention_mask": [1, 1, 1]},
+    )
+
+    assert output.shape == (1, 3, 4)
+    assert output.dtype == torch.bfloat16
 
 
 def test_layer_output_error_aggregates_by_element():

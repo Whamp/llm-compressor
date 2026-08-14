@@ -282,13 +282,17 @@ def capture_layer26_output(model: torch.nn.Module, sample: dict) -> torch.Tensor
 
     layers = cast(torch.nn.ModuleList, getattr(model, "layers"))
     layer = layers[TARGET_LAYER_INDEX]
-    with layer.register_forward_hook(capture_output), torch.inference_mode():
-        device = get_main_device()
-        model_inputs = {
-            key: torch.tensor([value], dtype=torch.long, device=device)
-            for key, value in sample.items()
-            if key in {"input_ids", "attention_mask"}
-        }
+    device = get_main_device()
+    model_inputs = {
+        key: torch.tensor([value], dtype=torch.long, device=device)
+        for key, value in sample.items()
+        if key in {"input_ids", "attention_mask"}
+    }
+    with (
+        layer.register_forward_hook(capture_output),
+        torch.inference_mode(),
+        torch.autocast(device_type=device.type, dtype=torch.bfloat16),
+    ):
         model(**model_inputs, use_cache=False)
     if len(captured_outputs) != 1:
         raise ValueError(

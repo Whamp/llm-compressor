@@ -60,7 +60,7 @@ outside those repositories.
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python \
   --index-url https://download.pytorch.org/whl/cu130 \
-  'torch==2.13.0'
+  'torch==2.13.0' 'torchvision==0.28.0'
 uv pip install --python .venv/bin/python \
   'datasets==5.0.1' 'safetensors==0.8.0' 'transformers==5.14.1' \
   -e ./compressed-tensors -e ./auto-round -e ./llm-compressor
