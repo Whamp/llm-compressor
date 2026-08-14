@@ -416,6 +416,7 @@ def test_projection_specific_recipe_is_layer26_only():
     assert recipe.iters == 200
     assert recipe.device_ids == "0,1"
     assert recipe.disable_opt_rtn is True
+    assert recipe.enable_torch_compile is False
     assert recipe.config_groups["layer26_gate_up"].weights.num_bits == 2
     assert recipe.config_groups["layer26_gate_up"].weights.group_size == 256
     assert recipe.config_groups["layer26_down"].weights.num_bits == 4

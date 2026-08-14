@@ -10,7 +10,7 @@
     "token_manifest_sha256": "646de977abf3677d71978bc31ad8bcb65660e53d33d7cd9628a2ee3f1c6784af"
   },
   "repositories": {
-    "auto-round": "a52f4597eeec93254cb1ef36b71a04f096978f20",
+    "auto-round": "319a827ca8b4710390417f22e08b4a2068408df6",
     "compressed-tensors": "434b5a33f584a8990e91a96e9177ee49c2f2aa31",
     "llm-compressor": "cbaea4ddf69ed65392f23149f7bb232b04a0f797"
   },

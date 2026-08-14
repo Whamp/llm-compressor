@@ -232,7 +232,7 @@ def projection_specific_recipe(iterations: int, device_ids: str) -> AutoRoundMod
     prefix = r"re:^layers\.26\.mlp\.experts\.\d+\."
     return AutoRoundModifier(
         iters=iterations,
-        enable_torch_compile=True,
+        enable_torch_compile=False,
         batch_size=1,
         device_ids=device_ids,
         disable_opt_rtn=True,
