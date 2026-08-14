@@ -8,7 +8,11 @@ from auto_round.schemes import PRESET_SCHEMES as AR_PRESET_SCHEMES
 from auto_round.schemes import QuantizationScheme as ARQuantizationScheme
 from auto_round.utils import check_to_quantized
 from auto_round.wrapper import WrapperWALayer
-from compressed_tensors.offload import get_execution_device, get_offloaded_device
+from compressed_tensors.offload import (
+    disable_onloading,
+    get_execution_device,
+    get_offloaded_device,
+)
 from compressed_tensors.offload.cache.base import OffloadCache
 from compressed_tensors.offload.module import offload_module, remove_module_offload
 from compressed_tensors.quantization import (
@@ -221,8 +225,6 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         # ranks → broadcast deadlock. Quant params are deterministic —
         # each rank computes identical values, no sync needed.
         if QuantizationMixin.has_config(self):
-            from compressed_tensors.offload import disable_onloading
-
             with disable_onloading():
                 QuantizationMixin.initialize_quantization(self, state.model)
 
@@ -481,13 +483,16 @@ class AutoRoundModifier(Modifier, QuantizationMixin):
         This prevents naming or state conflicts with AutoRound during quantization.
         """
         llmc_registered_qparams = {}
-        for name, module in model.named_modules():
-            for key in QuantizationMetadata.all_qparam_names():
-                if hasattr(module, key):
-                    if name not in llmc_registered_qparams:
-                        llmc_registered_qparams[name] = {}
-                    llmc_registered_qparams[name][key] = getattr(module, key).clone()
-            QuantizationMetadata.clear_all_qparams(module)
+        with disable_onloading():
+            for name, module in model.named_modules():
+                for key in QuantizationMetadata.all_qparam_names():
+                    if hasattr(module, key):
+                        if name not in llmc_registered_qparams:
+                            llmc_registered_qparams[name] = {}
+                        llmc_registered_qparams[name][key] = getattr(
+                            module, key
+                        ).clone()
+                QuantizationMetadata.clear_all_qparams(module)
         return llmc_registered_qparams
 
     def _postprocess_qparams(
