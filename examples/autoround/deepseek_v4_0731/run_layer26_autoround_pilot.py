@@ -6,12 +6,14 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import importlib
 import importlib.metadata
 import json
 import resource
 import subprocess
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -38,6 +40,16 @@ from llmcompressor.utils import get_main_device, load_context
 BF16_OUTPUT_TENSOR_COUNT = 36_599
 TARGET_LAYER_INDEX = 26
 AUTOROUND_ITERATIONS = 200
+
+
+@contextlib.contextmanager
+def mixed_device_bf16_autocast() -> Iterator[None]:
+    """Autocast CPU-offloaded prefix work and CUDA target-layer work to BF16."""
+    with contextlib.ExitStack() as stack:
+        stack.enter_context(torch.autocast("cpu", dtype=torch.bfloat16))
+        if torch.cuda.is_available():
+            stack.enter_context(torch.autocast("cuda", dtype=torch.bfloat16))
+        yield
 
 
 def load_json(path: Path) -> dict:
@@ -291,7 +303,7 @@ def capture_layer26_output(model: torch.nn.Module, sample: dict) -> torch.Tensor
     with (
         layer.register_forward_hook(capture_output),
         torch.inference_mode(),
-        torch.autocast(device_type=device.type, dtype=torch.bfloat16),
+        mixed_device_bf16_autocast(),
     ):
         model(**model_inputs, use_cache=False)
     if len(captured_outputs) != 1:
@@ -435,22 +447,23 @@ def run_quantization(
 ) -> float:
     """Quantize exactly layer 26 through llm-compressor's public oneshot seam."""
     quantization_start = time.perf_counter()
-    oneshot(
-        model=model,
-        processor=tokenizer,
-        dataset=calibration_dataset,
-        recipe=projection_specific_recipe(iterations, device_ids),
-        pipeline="sequential",
-        sequential_targets=[TARGET_LAYER_PATH],
-        sequential_targets_per_subgraph=1,
-        batch_size=1,
-        max_seq_length=2048,
-        num_calibration_samples=128,
-        shuffle_calibration_samples=False,
-        moe_calibrate_all_experts=True,
-        propagate_error=False,
-        clear_sparse_session=True,
-    )
+    with mixed_device_bf16_autocast():
+        oneshot(
+            model=model,
+            processor=tokenizer,
+            dataset=calibration_dataset,
+            recipe=projection_specific_recipe(iterations, device_ids),
+            pipeline="sequential",
+            sequential_targets=[TARGET_LAYER_PATH],
+            sequential_targets_per_subgraph=1,
+            batch_size=1,
+            max_seq_length=2048,
+            num_calibration_samples=128,
+            shuffle_calibration_samples=False,
+            moe_calibrate_all_experts=True,
+            propagate_error=False,
+            clear_sparse_session=True,
+        )
     return time.perf_counter() - quantization_start
 
 

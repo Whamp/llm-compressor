@@ -86,7 +86,7 @@ class _MixedDtypePrefix(torch.nn.Module):
         hidden_states = torch.ones(
             (*input_ids.shape, 4),
             dtype=torch.float32,
-            device=input_ids.device,
+            device="cpu",
         )
         for layer in self.layers:
             hidden_states = layer(hidden_states)
